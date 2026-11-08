@@ -12,7 +12,7 @@ One repo, one version: all modules are released together from a `release/X.Y.Z` 
 | --- | --- | --- | --- |
 | `lifeos-base-core` | none (no Spring, enforced at build time) | `UuidV7`, `LifeOsHeaders`, `CorrelationIds`, `ErrorCode` / `CommonErrorCode` / `LifeOsException` | gateway + all services |
 | `lifeos-base-web` | servlet | JWT resource-server config, `@CurrentUser`, RFC 9457 problem responses, correlation-ID filter, `Clock` | servlet services |
-| `lifeos-base-messaging` | Kafka + JPA (planned) | event envelope, outbox publisher, inbox de-duplication | services that produce/consume events |
+| `lifeos-base-messaging` | PostgreSQL + Kafka | event envelope, outbox publisher, inbox de-duplication | services that produce/consume events |
 | `lifeos-base-test` | test scope (planned) | Testcontainers (PostgreSQL, Kafka), test JWTs | all services' tests |
 
 The gateway is WebFlux: it must never depend on `lifeos-base-web` or `lifeos-base-messaging`, otherwise Spring
@@ -54,3 +54,27 @@ service defines its own):
   A service's own `@RestControllerAdvice` should use a higher precedence than `Ordered.LOWEST_PRECEDENCE - 20`.
 - **Correlation ID filter** — first filter of the request; MDC key `correlationId`, echoed in `X-Correlation-Id`.
 - **`Clock`** — `Clock.systemUTC()`; inject it instead of calling `Instant.now()` so tests can fix the time.
+
+## Messaging (PostgreSQL + Kafka)
+
+Add `lifeos-base-messaging` and set the service's topic:
+
+```yaml
+lifeos.messaging.outbox.topic: lifeos.strategy.events.v1   # or outbox.enabled: false for a consumer-only service
+lifeos.messaging.inbox.consumer: coach                     # defaults to spring.application.name
+```
+
+- **Tables** — `outbox_event` and `inbox_message` are created by the library itself (Flyway, location
+  `db/lifeos-base/messaging`, own history table `flyway_schema_history_lifeos_base`), after the service's own
+  Flyway run. Never copy them into the service's `db/migration`.
+- **`Outbox.append(OutboxMessage)`** — call it inside the transaction that changes the aggregate (JPA or JDBC);
+  outside a transaction it throws. The correlation ID is taken from the MDC.
+- **`OutboxRelay`** — background thread (no `@EnableScheduling` needed) publishes committed rows in `seq` order:
+  key = `userId`, value = the JSON envelope, headers `eventId`, `eventType`, `eventVersion`, `X-Correlation-Id`.
+  A PostgreSQL advisory lock lets only one replica relay at a time, so one user's events keep their order; a
+  failed send stops the batch and is retried after `failure-backoff`. At-least-once delivery.
+- **`Inbox.handle(record, handler)`** — de-duplicates on `(eventId, consumer)` in the same transaction as the
+  handler's writes; a failing handler rolls both back. Puts the event's correlation ID in the MDC.
+  A value that is not an envelope throws `MalformedEventException`: exclude it from `@RetryableTopic`.
+- **Clean-up** — published outbox rows after `outbox.retention` (7d), inbox rows after `inbox.retention` (30d,
+  keep it above the Kafka topic retention).
