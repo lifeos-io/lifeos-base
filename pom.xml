@@ -11,11 +11,23 @@
         <relativePath/>
     </parent>
 
-    <artifactId>lifeos-base</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
-    <name>Life OS base</name>
-    <description>Shared technical code for all services. Contains no domain code.</description>
+    <artifactId>lifeos-base-parent</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>Life OS base (parent)</name>
+    <description>Shared technical code for all services, split by runtime so each consumer pulls only what it can run.
+        Contains no domain code.</description>
+
+    <!--
+      One repo, one version: every module is released together from a release/X.Y.Z branch.
+      lifeos-base-core       no Spring; safe for the WebFlux gateway
+      lifeos-base-web        servlet services only (security, errors, correlation filter)   - planned
+      lifeos-base-messaging  Kafka + JPA (envelope, outbox, inbox)                           - planned
+      lifeos-base-test       test scope (Testcontainers, test JWTs)                          - planned
+    -->
+    <modules>
+        <module>lifeos-base-core</module>
+    </modules>
 
     <!-- Used to resolve the parent POM when it is not in the local ~/.m2 (e.g. in CI).
          Credentials come from the server with id "github" in settings.xml. -->
@@ -29,11 +41,23 @@
         </repository>
     </repositories>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <!-- The root POM publishes to .../<owner>/${project.artifactId}, i.e. a GitHub repo of the same name.
+         Modules are named lifeos-base-*, but they all live in the lifeos-base repo, so pin the URL here. -->
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/${github.owner}/lifeos-base</url>
+        </repository>
+    </distributionManagement>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.lifeos</groupId>
+                <artifactId>lifeos-base-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>
