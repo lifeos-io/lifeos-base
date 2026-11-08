@@ -8,6 +8,10 @@ permissions:
   contents: read
   packages: write
 
+# Every Maven step may resolve lifeos-* artifacts from GitHub Packages, so the token is job-wide.
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -25,5 +29,3 @@ jobs:
         run: mvn -B versions:set -DnewVersion=${GITHUB_REF_NAME#v} -DgenerateBackupPoms=false
       - name: Publish
         run: mvn -B deploy
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
