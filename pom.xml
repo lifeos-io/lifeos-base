@@ -21,12 +21,13 @@
     <!--
       One repo, one version: every module is released together from a release/X.Y.Z branch.
       lifeos-base-core       no Spring; safe for the WebFlux gateway
-      lifeos-base-web        servlet services only (security, errors, correlation filter)   - planned
+      lifeos-base-web        servlet services only (security, errors, correlation filter)
       lifeos-base-messaging  Kafka + JPA (envelope, outbox, inbox)                           - planned
       lifeos-base-test       test scope (Testcontainers, test JWTs)                          - planned
     -->
     <modules>
         <module>lifeos-base-core</module>
+        <module>lifeos-base-web</module>
     </modules>
 
     <!-- Used to resolve the parent POM when it is not in the local ~/.m2 (e.g. in CI).

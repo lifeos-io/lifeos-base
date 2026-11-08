@@ -1,0 +1,2 @@
+com.lifeos.base.web.LifeOsWebAutoConfiguration
+com.lifeos.base.web.LifeOsSecurityAutoConfiguration
